@@ -13,8 +13,6 @@ const fs = require('fs');
 const { createCanvas, loadImage, registerFont } = require('canvas');
 const fetch = require('node-fetch');
 
-const api = process.env.API_KEY;
-
 // Default image width and height
 const width = 640;
 const height = 408;
@@ -31,8 +29,13 @@ const arrDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday
 registerFont('./assets/Montserrat-Regular.ttf', { family: 'Montserrat' });
 registerFont('./assets/Montserrat-Bold.ttf', { family: 'Montserrat Bold' });
 
+// API key and URL for weather map usage
+const api = process.env.API_KEY;
+const apiUrl = `https://api.openweathermap.org/data/2.5`;
+
 // Default country
 let country = 'uk';
+let objCurrent = {};
 
 // Serve the API with signed certificate on 443 (SSL/HTTPS) port
 const httpServer = http.createServer(app);
@@ -51,6 +54,17 @@ httpsServer.listen(443, () => {
 httpServer.listen(port, () => {
     console.log('HTTP Server running on port 80');
 });
+
+// Define some positions for items that sit in the same column
+const objPositions = {
+	leftPane: {
+		left: 25
+	},
+	rightPane: {
+		left: 330,
+		dayWidth: 70
+	}
+};
 
 /**
  * Draws a rounded rectangle using the current state of the canvas.
@@ -122,11 +136,49 @@ function addText(context, strText, objPos, strFont = '16px Montserrat', strAlign
 	context.fillText(strText, objPos.left, objPos.top);
 }
 
+/**
+ * Loads a weather icon and adds it to the canvas
+ *
+ * @param  {Object} context The canvas context
+ * @param  {Integer} intI    When used in a loop this is the loop key
+ * @param  {Object} objDay  The day information
+ * @return {Promise}         Promise filfilled when the icon as been added
+ */
+function loadIcon(context, intI, objDay)
+{
+	return new Promise((resolve, reject) => {
+		loadImage(`http://openweathermap.org/img/wn/${objDay.weather[0].icon}@2x.png`).then(image => {
+			const intLeft = (intI - 1) * objPositions.rightPane.dayWidth;
+			context.drawImage(image, (objPositions.rightPane.left + intLeft + 10), 255, 50, 50);
+			resolve();
+		}).catch(err => reject(err));
+	});
+}
+
+function degreeToDirection(intDeg)
+{
+	let value = parseFloat(intDeg);
+	if (value <= 11.25) {
+		return 'N';
+	}
+	value-= 11.25;
+	const allDirections = ['NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW', 'N'];
+	const dIndex = parseInt(value/22.5);
+	return allDirections[dIndex] ? allDirections[dIndex] : 'N';
+}
+
 app.get('/', (req, res) => {
 
 	country = req.query.country || country;
 	const apiKey = req.query.api_key || api;
-	fetch(`https://api.openweathermap.org/data/2.5/weather?q=${req.query.city},${country}&units=metric&appid=${apiKey}`)
+	fetch(`${apiUrl}/weather?q=${req.query.city},${country}&units=metric&appid=${apiKey}`)
+		.then(res => res.json())
+    	.then(json => {
+
+			objCurrent = json;
+			return fetch(`${apiUrl}/onecall?lat=${json.coord.lat}&lon=${json.coord.lon}&exclude=current,minutely,hourly&units=metric&appid=${apiKey}`);
+
+		})
 		.then(res => res.json())
     	.then(json => {
 
@@ -150,33 +202,63 @@ app.get('/', (req, res) => {
 			addText(context, now.toLocaleDateString(), { left: 25, top: 75 });
 			addText(context, `${req.query.city}, ${country.toUpperCase()}`, { left: 25, top: 120 });
 
-			loadImage(`http://openweathermap.org/img/wn/${json.weather[0].icon}@2x.png`).then(image => {
+			loadImage(`http://openweathermap.org/img/wn/${objCurrent.weather[0].icon}@2x.png`).then(image => {
 
 				context.drawImage(image, 25, 180, 100, 100);
 
-				addText(context, `${Math.round(parseFloat(json.main.temp))}°C`, { left: 25, top: 350 }, '64px "Montserrat Bold"');
-				addText(context, json.weather[0].main, { left: 25, top: 380 });
+				addText(context, `${Math.round(parseFloat(objCurrent.main.temp))}°C`, { left: 25, top: 350 }, '64px "Montserrat Bold"');
+				addText(context, objCurrent.weather[0].main, { left: 25, top: 380 });
 
-				addText(context, 'FEELS LIKE', { left: 340, top: 60 }, '16px "Montserrat Bold"');
-				addText(context, json.main.feels_like, { left: 600, top: 60 }, '16px Montserrat', 'right');
+				addText(context, 'FEELS LIKE', { left: objPositions.rightPane.left, top: 60 }, '16px "Montserrat Bold"');
+				addText(context, `${Math.round(parseFloat(objCurrent.main.feels_like))}°C`, { left: 610, top: 60 }, '16px Montserrat', 'right');
 
-				addText(context, 'PRESSURE', { left: 340, top: 100 }, '16px "Montserrat Bold"');
-				addText(context, json.main.pressure, { left: 600, top: 100 }, '16px Montserrat', 'right');
+				addText(context, 'PRESSURE', { left: objPositions.rightPane.left, top: 100 }, '16px "Montserrat Bold"');
+				addText(context, objCurrent.main.pressure, { left: 610, top: 100 }, '16px Montserrat', 'right');
 
-				addText(context, 'HUMIDITY', { left: 340, top: 140 }, '16px "Montserrat Bold"');
-				addText(context, json.main.humidity, { left: 600, top: 140 }, '16px Montserrat', 'right');
+				addText(context, 'HUMIDITY', { left: objPositions.rightPane.left, top: 140 }, '16px "Montserrat Bold"');
+				addText(context, `${objCurrent.main.humidity}%`, { left: 610, top: 140 }, '16px Montserrat', 'right');
 
-				addText(context, 'WIND', { left: 340, top: 180 }, '16px "Montserrat Bold"');
-				addText(context, `${json.wind.speed} mph`, { left: 600, top: 180 }, '16px Montserrat', 'right');
+				addText(context, 'WIND', { left: objPositions.rightPane.left, top: 180 }, '16px "Montserrat Bold"');
+				addText(context, `${Math.round(parseFloat(objCurrent.wind.speed))} mph`, { left: 610, top: 180 }, '16px Montserrat', 'right');
 
-				addText(context, 'WIND DIRECTION', { left: 340, top: 220 }, '16px "Montserrat Bold"');
-				addText(context, `${json.wind.deg}`, { left: 600, top: 220 }, '16px Montserrat', 'right');
+				addText(context, 'WIND DIRECTION', { left: objPositions.rightPane.left, top: 220 }, '16px "Montserrat Bold"');
+				addText(context, `${degreeToDirection(objCurrent.wind.deg)}`, { left: 610, top: 220 }, '16px Montserrat', 'right');
 
-				addText(context, now.toLocaleTimeString(), { left: 390, top: 365 }, '12px Montserrat');
+				const arrProms = [];
+				json.daily.forEach((objDay, intI) => {
+					if(intI > 0 && intI < 5)
+					{
+						arrProms.push(loadIcon(context, intI, objDay));
+					}
+				});
 
-				loadImage('./assets/avatar.jpeg').then(image => {
+				// Load all of the images
+				Promise.all(arrProms).then(() => {
 
-					context.drawImage(image, 340, 340, 40, 40);
+					json.daily.forEach((objDay, intI) => {
+
+						if(intI > 0 && intI < 5)
+						{
+							const objDate = new Date(objDay.dt * 1000);
+							const intLeft = (intI - 1) * objPositions.rightPane.dayWidth;
+
+							context.fillStyle = 'rgba(0, 0, 0, 0.1)';
+							roundRect(context, (objPositions.rightPane.left + intLeft), 250, objPositions.rightPane.dayWidth, 120, 10, true);
+
+							addText(context, arrDays[objDate.getDay()].substring(0, 3), { left: (objPositions.rightPane.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 320 }, '16px Montserrat', 'center');
+							addText(context, `${Math.round(parseFloat(objDay.temp.day))}°C`, { left: (objPositions.rightPane.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 350 }, '16px "Montserrat Bold"', 'center');
+						}
+
+					});
+
+					/*
+					// Avatar or branding here?
+					loadImage('./assets/avatar.jpeg').then(image => {
+
+						context.drawImage(image, 340, 340, 40, 40);
+
+					}).catch(err => res.end(err));
+					*/
 
 					const buffer = canvas.toBuffer('image/png');
 
