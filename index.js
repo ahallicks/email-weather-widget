@@ -4,10 +4,13 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
+const blnDev = process.env.NODE_ENV === 'development';
+
 // Import packages for express
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
+const path = require('path');
 
 // Canvas details
 const { createCanvas, loadImage, registerFont } = require('canvas');
@@ -20,14 +23,14 @@ const height = 408;
 // Setup the express server
 const express = require('express');
 const app = express();
-const port = 3000;
+const port = 5050;
 
 // Used to get the current day of the week
 const arrDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // Register the fonts for the canvas
-registerFont('./assets/Montserrat-Regular.ttf', { family: 'Montserrat' });
-registerFont('./assets/Montserrat-Bold.ttf', { family: 'Montserrat Bold' });
+registerFont(path.join(__dirname, 'assets', 'Montserrat-Regular.ttf'), { family: 'Montserrat' });
+registerFont(path.join(__dirname, 'assets' ,'Montserrat-Bold.ttf'), { family: 'Montserrat Bold' });
 
 // API key and URL for weather map usage
 const api = process.env.API_KEY;
@@ -167,20 +170,74 @@ function degreeToDirection(intDeg)
 	return allDirections[dIndex] ? allDirections[dIndex] : 'N';
 }
 
-app.get('/', (req, res) => {
+function showError(context)
+{
+	const now = new Date();
 
-	country = req.query.country || country;
+	context.fillStyle = '#222831';
+	roundRect(context, 280, 4, 360, height - 8, {
+		tl: 0,
+		tr: 25,
+		br: 25,
+		bl: 0
+	}, true);
+
+	context.fillStyle = '#5151E5';
+	roundRect(context, 0, 0, 300, height, 25, true);
+
+	addText(context, arrDays[now.getDay()], { left: 25, top: 50}, '24px "Montserrat Bold"');
+	addText(context, now.toLocaleDateString(), { left: 25, top: 75 });
+
+	addText(context, `Unknown city`, { left: 25, top: 120 });
+
+	addText(context, 'No weather data available', { left: objPositions.rightPane.left, top: 60 }, '16px "Montserrat Bold"');
+}
+
+app.get('/', (_req, res) => {
+
+	const canvas = createCanvas(width, height);
+	const context = canvas.getContext('2d');
+
+	showError(context);
+
+	const buffer = canvas.toBuffer('image/png');
+
+	res.contentType('png');
+	res.end(buffer, 'binary');
+
+});
+
+app.get('/:city/:country*?', (req, res) => {
+
+	country = req.params.country || country;
+    console.log(country);
 	const apiKey = req.query.api_key || api;
-	fetch(`${apiUrl}/weather?q=${req.query.city},${country}&units=metric&appid=${apiKey}`)
+	fetch(`${apiUrl}/weather?q=${req.params.city},${country}&units=metric&appid=${apiKey}`)
 		.then(res => res.json())
-    	.then(json => {
+		.then(json => {
+
+			if(json.cod === '404')
+			{
+
+				const canvas = createCanvas(width, height);
+				const context = canvas.getContext('2d');
+
+				showError(context);
+
+				const buffer = canvas.toBuffer('image/png');
+
+				res.contentType('png');
+				res.end(buffer, 'binary');
+
+				return;
+			}
 
 			objCurrent = json;
 			return fetch(`${apiUrl}/onecall?lat=${json.coord.lat}&lon=${json.coord.lon}&exclude=current,minutely,hourly&units=metric&appid=${apiKey}`);
 
 		})
 		.then(res => res.json())
-    	.then(json => {
+		.then(json => {
 
 			const canvas = createCanvas(width, height);
 			const context = canvas.getContext('2d');
@@ -200,7 +257,7 @@ app.get('/', (req, res) => {
 
 			addText(context, arrDays[now.getDay()], { left: 25, top: 50}, '24px "Montserrat Bold"');
 			addText(context, now.toLocaleDateString(), { left: 25, top: 75 });
-			addText(context, `${req.query.city}, ${country.toUpperCase()}`, { left: 25, top: 120 });
+			addText(context, `${objCurrent.name}, ${objCurrent.sys.country}`, { left: 25, top: 120 });
 
 			loadImage(`http://openweathermap.org/img/wn/${objCurrent.weather[0].icon}@2x.png`).then(image => {
 
@@ -269,5 +326,5 @@ app.get('/', (req, res) => {
 
 			}).catch(err => res.end(err));
 
-		}).catch(err => res.end(err));
+		}).catch(err => res.end(err.message));
 });
