@@ -139,7 +139,8 @@ app.get('/', (req, res) => {
 			roundRect(context, 280, 4, 360, height - 8, {
 				tl: 0,
 				tr: 25,
-				br: 25, bl: 0
+				br: 25,
+				bl: 0
 			}, true);
 
 			context.fillStyle = '#5151E5';
@@ -150,6 +151,7 @@ app.get('/', (req, res) => {
 			addText(context, `${req.query.city}, ${country.toUpperCase()}`, { left: 25, top: 120 });
 
 			loadImage(`http://openweathermap.org/img/wn/${json.weather[0].icon}@2x.png`).then(image => {
+
 				context.drawImage(image, 25, 180, 100, 100);
 
 				addText(context, `${Math.round(parseFloat(json.main.temp))}°C`, { left: 25, top: 350 }, '64px "Montserrat Bold"');
@@ -173,12 +175,14 @@ app.get('/', (req, res) => {
 				addText(context, now.toLocaleTimeString(), { left: 390, top: 365 }, '12px Montserrat');
 
 				loadImage('./assets/avatar.jpeg').then(image => {
+
 					context.drawImage(image, 340, 340, 40, 40);
 
 					const buffer = canvas.toBuffer('image/png');
 
 					res.contentType('png');
 					res.end(buffer, 'binary');
+
 				}).catch(err => res.end(err));
 
 			}).catch(err => res.end(err));
