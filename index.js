@@ -4,12 +4,10 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
-const blnDev = process.env.NODE_ENV === 'development';
-
 // Import packages for express
 const http = require('http');
-const https = require('https');
-const fs = require('fs');
+
+// Node internals
 const path = require('path');
 
 // Canvas details
@@ -40,22 +38,11 @@ const apiUrl = `https://api.openweathermap.org/data/2.5`;
 let country = 'uk';
 let objCurrent = {};
 
-// Serve the API with signed certificate on 443 (SSL/HTTPS) port
+// Serve the API
 const httpServer = http.createServer(app);
-const httpsServer = https.createServer({
-	key: fs.readFileSync(__dirname + '/key.pem'),
-	cert: fs.readFileSync(__dirname + '/cert.pem'),
-	requestCert: false,
-	rejectUnauthorized: false,
-	passphrase: process.env.SSL_PASSWORD
-}, app);
-
-httpsServer.listen(443, () => {
-	console.log('HTTPS Server running on port 443');
-});
 
 httpServer.listen(port, () => {
-    console.log('HTTP Server running on port 80');
+	console.log('HTTP Server running on port 80');
 });
 
 // Define some positions for items that sit in the same column
