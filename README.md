@@ -24,7 +24,7 @@ In order to run this locally you will need to do a few things:
 
  - Generate a local SSL key to use if you want it available on https. I followed [the instructions here](https://hackernoon.com/set-up-ssl-in-nodejs-and-express-using-openssl-f2529eab5bb)
  - Run `npm i`
- - RUn `npm start` or, as I like to do when working on things locally with node use `nodemon index.js` (`npm i -g nodemon`), which will live reload the index.js script when you save it
+ - Run `npm start` or, as I like to do when working on things locally with node use `nodemon index.js` (`npm i -g nodemon`), which will live reload the index.js script when you save it
 
 ## To Do
 
@@ -42,3 +42,4 @@ In order to run this locally you will need to do a few things:
 - [ ] Add a nice, personal 'Hello' message
 - [x] If there's an error show a proper error page
 - [x] Create a mobile view
+- [ ] Add caching

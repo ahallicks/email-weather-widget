@@ -1,5 +1,7 @@
 'use strict';
 
+const { degreeToDirection, calculateRadius } = require('./lib/helpers');
+
 // Env vars
 const dotenv = require('dotenv');
 dotenv.config();
@@ -38,7 +40,7 @@ const arrDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday
 
 // Register the fonts for the canvas
 registerFont(path.join(__dirname, 'assets', 'Montserrat-Regular.ttf'), { family: 'Montserrat' });
-registerFont(path.join(__dirname, 'assets' ,'Montserrat-Bold.ttf'), { family: 'Montserrat Bold' });
+registerFont(path.join(__dirname, 'assets', 'Montserrat-Bold.ttf'), { family: 'Montserrat Bold' });
 
 // API key and URL for weather map usage
 const api = process.env.API_KEY;
@@ -74,7 +76,7 @@ const objPositions = {
  * If you omit the last three params, it will draw a rectangle
  * outline with a 5 pixel border radius
  *
- * @param {CanvasRenderingContext2D} ctx
+ * @param {CanvasRenderingContext2D} context
  * @param {Number} x The top left x coordinate
  * @param {Number} y The top left y coordinate
  * @param {Number} width The width of the rectangle
@@ -88,35 +90,28 @@ const objPositions = {
  * @param {Boolean} [fill = false] Whether to fill the rectangle.
  * @param {Boolean} [stroke = true] Whether to stroke the rectangle.
  */
-function roundRect(ctx, x, y, width, height, radius = 0, fill = false, stroke = false) {
+function roundRect(context, x, y, width, height, radius = 0, fill = false, stroke = false) {
 
-	if (typeof radius === 'number') {
-		radius = {tl: radius, tr: radius, br: radius, bl: radius};
-	} else {
-		const defaultRadius = {tl: 0, tr: 0, br: 0, bl: 0};
-		for (const side in defaultRadius) {
-		  radius[side] = radius[side] || defaultRadius[side];
-		}
-	}
+	radius = calculateRadius(radius);
 
-	ctx.beginPath();
-	ctx.moveTo(x + radius.tl, y);
-	ctx.lineTo(x + width - radius.tr, y);
-	ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
-	ctx.lineTo(x + width, y + height - radius.br);
-	ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
-	ctx.lineTo(x + radius.bl, y + height);
-	ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
-	ctx.lineTo(x, y + radius.tl);
-	ctx.quadraticCurveTo(x, y, x + radius.tl, y);
-	ctx.closePath();
+	context.beginPath();
+	context.moveTo(x + radius.tl, y);
+	context.lineTo(x + width - radius.tr, y);
+	context.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+	context.lineTo(x + width, y + height - radius.br);
+	context.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+	context.lineTo(x + radius.bl, y + height);
+	context.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+	context.lineTo(x, y + radius.tl);
+	context.quadraticCurveTo(x, y, x + radius.tl, y);
+	context.closePath();
 
 	if (fill) {
-		ctx.fill();
+		context.fill();
 	}
 
 	if (stroke) {
-		ctx.stroke();
+		context.stroke();
 	}
 
 }
@@ -142,10 +137,11 @@ function addText(context, strText, objPos, strFont = '16px Montserrat', strAlign
 /**
  * Loads a weather icon and adds it to the canvas
  *
+ * @param  {Object} req 	Express rewquest parameters
  * @param  {Object} context The canvas context
- * @param  {Integer} intI    When used in a loop this is the loop key
+ * @param  {Integer} intI   When used in a loop this is the loop key
  * @param  {Object} objDay  The day information
- * @return {Promise}         Promise filfilled when the icon as been added
+ * @return {Promise}        Promise filfilled when the icon as been added
  */
 function loadIcon(req, context, intI, objDay)
 {
@@ -161,23 +157,12 @@ function loadIcon(req, context, intI, objDay)
 }
 
 /**
- * Converts an angle (from 0 to 360 degrees) into a nice direction
+ * Create the layout (including backgrounds and sections) based on the
+ * user agent string from the request. Mobile is stacked, basically.
  *
- * @param  {Integer} intDeg The angle to convert
- * @return {String}        The direction of the wind
+ * @param  {Object} req Express rewquest parameters
+ * @return {Object}     The created canvas and context
  */
-function degreeToDirection(intDeg)
-{
-	let value = parseFloat(intDeg);
-	if (value <= 11.25) {
-		return 'N';
-	}
-	value-= 11.25;
-	const allDirections = ['NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW', 'N'];
-	const dIndex = parseInt(value/22.5);
-	return allDirections[dIndex] ? allDirections[dIndex] : 'N';
-}
-
 function createLayout(req)
 {
 	let canvas;
@@ -219,21 +204,24 @@ function createLayout(req)
 	return { canvas, context };
 }
 
+/**
+ * Shows an error page
+ *
+ * @param  {Object} req        Express request parameters
+ * @param  {Object} res        Express response parameters
+ * @param  {String} strMessage String (optional) a message to display
+ */
 function showError(req, res, strMessage)
 {
 	const { canvas, context } = createLayout(req);
 
 	const now = new Date();
-
 	addText(context, arrDays[now.getDay()], { left: 25, top: 50}, '24px "Montserrat Bold"');
 	addText(context, now.toLocaleDateString(), { left: 25, top: 75 });
-
 	addText(context, (strMessage || `Unknown city`), { left: 25, top: 120 });
-
 	addText(context, 'No weather data available', { left: objPositions.rightPane.left, top: 60 }, '16px "Montserrat Bold"');
 
 	const buffer = canvas.toBuffer('image/png');
-
 	res.contentType('png');
 	res.end(buffer, 'binary');
 }
@@ -346,15 +334,6 @@ app.get('/:city/:country*?', (req, res) => {
 						}
 
 					});
-
-					/*
-					// Avatar or branding here?
-					loadImage('./assets/avatar.jpeg').then(image => {
-
-						context.drawImage(image, 340, 340, 40, 40);
-
-					}).catch(err => res.end(err));
-					*/
 
 					const buffer = canvas.toBuffer('image/png');
 
