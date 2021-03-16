@@ -2,6 +2,8 @@
 
 A widget that returns an image that shows weather for the given location (town, country).
 
+To get started on this project I used [this article](https://flaviocopes.com/canvas-node-generate-image/) as an instruction to generating images in Node.
+
 The output is created by using the wonderful library by [Automattic](https://automattic.com/) called [node-canvas](https://github.com/Automattic/node-canvas), which allows you to use the standard browser canvas in Node and output the resulting canvas as an image.
 
 The image is based on the lovely design from [this Codepen](https://codepen.io/Call_in/pen/pMYGbZ). Thanks to [Colin Espinas](https://codepen.io/Call_in) for the design.
@@ -31,11 +33,12 @@ In order to run this locally you will need to do a few things:
 - [x] Add a forecast (if available from the API)
 - [ ] Add colour options
 - [ ] Add style Options
-- [ ] Change the query params to proper Express parameters with fallback
+- [x] Change the query params to proper Express parameters with fallback
 - [x] Check that the image being output is transparent
-- [ ] Add error checking for the passed city and country
-- [ ] Add proper catch statements to return something useful and nice
+- [x] Add error checking for the passed city and country
+- [x] Add proper catch statements to return something useful and nice
 - [ ] Convert all calculations/positions to a percentage/offset so that the width and height can be easily changed
 - [x] Format the place name properly
 - [ ] Add a nice, personal 'Hello' message
 - [x] If there's an error show a proper error page
+- [x] Create a mobile view
