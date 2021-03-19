@@ -8,6 +8,8 @@ The output is created by using the wonderful library by [Automattic](https://aut
 
 The image is based on the lovely design from [this Codepen](https://codepen.io/Call_in/pen/pMYGbZ). Thanks to [Colin Espinas](https://codepen.io/Call_in) for the design.
 
+![Email Weather Widget screenshot](assets/screenshot.png "Email Weather Widget screenshot")
+
 ## Options
 
 **City** (string)
