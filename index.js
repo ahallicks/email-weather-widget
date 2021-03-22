@@ -1,7 +1,5 @@
 'use strict';
 
-const { degreeToDirection, calculateRadius } = require('./lib/helpers');
-
 // Env vars
 const dotenv = require('dotenv');
 dotenv.config();
@@ -17,18 +15,6 @@ const path = require('path');
 const { createCanvas, loadImage, registerFont } = require('canvas');
 const fetch = require('node-fetch');
 
-// Default image width and height
-const objDimensions = {
-	mobile: {
-		width: 320,
-		height: 640
-	},
-	desktop: {
-		width: 640,
-		height: 408
-	}
-};
-
 // Setup the express server
 const express = require('express');
 const useragent = require('express-useragent');
@@ -43,8 +29,10 @@ httpServer.listen(port, () => {
 	console.log(`HTTP Server running on port ${port}`);
 });
 
-// Used to get the current day of the week
-const arrDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+// Internal lib helpers and methods
+const { objDimensions, objPositions, arrDays, intCacheTime } = require('./lib/config');
+const { degreeToDirection } = require('./lib/helpers');
+const { roundRect, addText, loadIcon } = require('./lib/canvas');
 
 // Register the fonts for the canvas
 registerFont(path.join(__dirname, 'assets', 'Montserrat-Regular.ttf'), { family: 'Montserrat' });
@@ -53,110 +41,10 @@ registerFont(path.join(__dirname, 'assets', 'Montserrat-Bold.ttf'), { family: 'M
 // API key and URL for weather map usage
 const api = process.env.API_KEY;
 const apiUrl = `https://api.openweathermap.org/data/2.5`;
-const intCacheTime = 1000 * 60 * 10;
 
 // Default country
 let country = 'uk';
 let objCurrent = {};
-
-// Define some positions for items that sit in the same column
-const objPositions = {
-	leftPane: {
-		left: 25
-	},
-	rightPane: {
-		left: 330,
-		dayWidth: 70,
-		mobile: {
-			left: 20
-		}
-	}
-};
-
-/**
- * Draws a rounded rectangle using the current state of the canvas.
- * If you omit the last three params, it will draw a rectangle
- * outline with a 5 pixel border radius
- *
- * @param {CanvasRenderingContext2D} context
- * @param {Number} x The top left x coordinate
- * @param {Number} y The top left y coordinate
- * @param {Number} width The width of the rectangle
- * @param {Number} height The height of the rectangle
- * @param {Number} [radius = 5] The corner radius; It can also be an object
- *                 to specify different radii for corners
- * @param {Number} [radius.tl = 0] Top left
- * @param {Number} [radius.tr = 0] Top right
- * @param {Number} [radius.br = 0] Bottom right
- * @param {Number} [radius.bl = 0] Bottom left
- * @param {Boolean} [fill = false] Whether to fill the rectangle.
- * @param {Boolean} [stroke = true] Whether to stroke the rectangle.
- */
-function roundRect(context, x, y, width, height, radius = 0, fill = false, stroke = false) {
-
-	radius = calculateRadius(radius);
-
-	context.beginPath();
-	context.moveTo(x + radius.tl, y);
-	context.lineTo(x + width - radius.tr, y);
-	context.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
-	context.lineTo(x + width, y + height - radius.br);
-	context.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
-	context.lineTo(x + radius.bl, y + height);
-	context.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
-	context.lineTo(x, y + radius.tl);
-	context.quadraticCurveTo(x, y, x + radius.tl, y);
-	context.closePath();
-
-	if (fill) {
-		context.fill();
-	}
-
-	if (stroke) {
-		context.stroke();
-	}
-
-}
-
-/**
- * Add a text layer to the canvas
- *
- * @param {Object} context           The canvas 2D context
- * @param {String} strText           The text to put on the canvas
- * @param {Object} objPos            left and top positions for the text
- * @param {String} [strFont='16px    Montserrat']  The font to use
- * @param {String} [strAlign='left'] Text alignment (left or right)
- * @param {String} [strFill='#fff']  Fill text colour
- */
-function addText(context, strText, objPos, strFont = '16px Montserrat', strAlign = 'left', strFill = '#fff')
-{
-	context.font = strFont;
-	context.fillStyle = strFill;
-	context.textAlign = strAlign;
-	context.fillText(strText, objPos.left, objPos.top);
-}
-
-/**
- * Loads a weather icon and adds it to the canvas
- *
- * @param  {Object} req 	Express rewquest parameters
- * @param  {Object} context The canvas context
- * @param  {Integer} intI   When used in a loop this is the loop key
- * @param  {Object} objDay  The day information
- * @return {Promise}        Promise filfilled when the icon as been added
- */
-function loadIcon(req, context, intI, objDay)
-{
-	return new Promise((resolve, reject) => {
-		loadImage(`http://openweathermap.org/img/wn/${objDay.weather[0].icon}@2x.png`).then(image => {
-			const intLeft = (intI - 1) * objPositions.rightPane.dayWidth;
-			context.fillStyle = '#3838A0';
-			req.useragent.isMobile ? roundRect(context, (objPositions.rightPane.mobile.left + intLeft + 10), 515, 50, 50, 10, true) : roundRect(context, (objPositions.rightPane.left + intLeft + 10), 260, 50, 50, 10, true);
-			req.useragent.isMobile ? context.drawImage(image, (objPositions.rightPane.mobile.left + intLeft + 10), 515, 50, 50) : context.drawImage(image, (objPositions.rightPane.left + intLeft + 10), 260, 50, 50);
-			resolve();
-		}).catch(err => reject(err));
-	});
-}
 
 /**
  * Create the layout (including backgrounds and sections) based on the
@@ -213,8 +101,7 @@ function createLayout(req)
  * @param  {Object} res        Express response parameters
  * @param  {String} strMessage String (optional) a message to display
  */
-function showError(req, res, strMessage)
-{
+const showError = (req, res, strMessage) => {
 	const { canvas, context } = createLayout(req);
 
 	const now = new Date();
@@ -226,8 +113,13 @@ function showError(req, res, strMessage)
 	const buffer = canvas.toBuffer('image/png');
 	res.contentType('png');
 	res.end(buffer, 'binary');
-}
+};
 
+/**
+ * Get the last modified time of a given file
+ * @param  {String} path The path to the file
+ * @return {Integer}     The time the file was last modified
+ */
 const getFileUpdatedDate = path => {
   const stats = fs.statSync(path);
   return stats.mtime;
@@ -377,7 +269,7 @@ const buildUi = (req, res) => {
 };
 
 // Ignore favicon requests
-app.get('/favicon.ico', (req, res) => res.status(204));
+app.get('/favicon.ico', (_req, res) => res.status(204));
 
 // No data to process, show an error
 app.get('/', (req, res) => {
