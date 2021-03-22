@@ -180,6 +180,14 @@ const buildUi = (req, res) => {
 					addText(context, `${Math.round(parseFloat(objCurrent.main.temp))}°C`, req.useragent.isMobile ? { left: 25, top: 310 } : { left: 25, top: 350 }, '64px "Montserrat Bold"');
 					addText(context, objCurrent.weather[0].main, req.useragent.isMobile ? { left: 25, top: 340 } : { left: 25, top: 380 });
 
+					const intSpeed = Math.round(parseFloat(objCurrent.wind.speed));
+					let strSpeed = `${Math.round(parseFloat(objCurrent.wind.speed))} mph`;
+					const intGusts = Math.round(parseFloat(objCurrent.wind.gust));
+					if(intSpeed !== intGusts)
+					{
+						strSpeed = `${Math.round(parseFloat(objCurrent.wind.speed))} mph (gusts of ${objCurrent.wind.gust} mph)`;
+					}
+
 					if(req.useragent.isMobile)
 					{
 
@@ -187,7 +195,7 @@ const buildUi = (req, res) => {
 						addText(context, `${Math.round(parseFloat(objCurrent.main.feels_like))}°C`, { left: 300, top: 400 }, '16px Montserrat', 'right');
 
 						addText(context, 'WIND', { left: objPositions.rightPane.mobile.left, top: 440 }, '16px "Montserrat Bold"');
-						addText(context, `${Math.round(parseFloat(objCurrent.wind.speed))} mph`, { left: 300, top: 440 }, '16px Montserrat', 'right');
+						addText(context, strSpeed, { left: 300, top: 440 }, '16px Montserrat', 'right');
 
 						addText(context, 'WIND DIRECTION', { left: objPositions.rightPane.mobile.left, top: 480 }, '16px "Montserrat Bold"');
 						addText(context, `${degreeToDirection(objCurrent.wind.deg)}`, { left: 300, top: 480 }, '16px Montserrat', 'right');
@@ -198,13 +206,13 @@ const buildUi = (req, res) => {
 						addText(context, `${Math.round(parseFloat(objCurrent.main.feels_like))}°C`, { left: 610, top: 60 }, '16px Montserrat', 'right');
 
 						addText(context, 'PRESSURE', { left: objPositions.rightPane.left, top: 100 }, '16px "Montserrat Bold"');
-						addText(context, objCurrent.main.pressure, { left: 610, top: 100 }, '16px Montserrat', 'right');
+						addText(context, `${objCurrent.main.pressure} hPa`, { left: 610, top: 100 }, '16px Montserrat', 'right');
 
 						addText(context, 'HUMIDITY', { left: objPositions.rightPane.left, top: 140 }, '16px "Montserrat Bold"');
 						addText(context, `${objCurrent.main.humidity}%`, { left: 610, top: 140 }, '16px Montserrat', 'right');
 
 						addText(context, 'WIND', { left: objPositions.rightPane.left, top: 180 }, '16px "Montserrat Bold"');
-						addText(context, `${Math.round(parseFloat(objCurrent.wind.speed))} mph`, { left: 610, top: 180 }, '16px Montserrat', 'right');
+						addText(context, strSpeed, { left: 610, top: 180 }, '16px Montserrat', 'right');
 
 						addText(context, 'WIND DIRECTION', { left: objPositions.rightPane.left, top: 220 }, '16px "Montserrat Bold"');
 						addText(context, `${degreeToDirection(objCurrent.wind.deg)}`, { left: 610, top: 220 }, '16px Montserrat', 'right');
