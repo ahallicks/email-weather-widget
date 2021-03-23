@@ -30,9 +30,9 @@ httpServer.listen(port, () => {
 });
 
 // Internal lib helpers and methods
-const { objDimensions, objPositions, arrDays, intCacheTime } = require('./lib/config');
+const { objColours, objPositions, arrDays, arrMonths, intCacheTime } = require('./lib/config');
 const { degreeToDirection } = require('./lib/helpers');
-const { roundRect, addText, loadIcon } = require('./lib/canvas');
+const { createLayout, roundRect, addText, loadIcon } = require('./lib/canvas');
 
 // Register the fonts for the canvas
 registerFont(path.join(__dirname, 'assets', 'Montserrat-Regular.ttf'), { family: 'Montserrat' });
@@ -45,54 +45,6 @@ const apiUrl = `https://api.openweathermap.org/data/2.5`;
 // Default country
 let country = 'uk';
 let objCurrent = {};
-
-/**
- * Create the layout (including backgrounds and sections) based on the
- * user agent string from the request. Mobile is stacked, basically.
- *
- * @param  {Object} req Express rewquest parameters
- * @return {Object}     The created canvas and context
- */
-function createLayout(req)
-{
-	let canvas;
-	let context;
-	if(req.useragent.isMobile)
-	{
-
-		canvas = createCanvas(objDimensions.mobile.width, objDimensions.mobile.height);
-		context = canvas.getContext('2d');
-		context.fillStyle = '#222831';
-		roundRect(context, 4, 300, objDimensions.mobile.width - 8, 340, {
-			tl: 0,
-			tr: 0,
-			br: 25,
-			bl: 25
-		}, true);
-
-		context.fillStyle = '#5151E5';
-		roundRect(context, 0, 0, objDimensions.mobile.width, 360, 25, true);
-
-	} else {
-
-		canvas = createCanvas(objDimensions.desktop.width, objDimensions.desktop.height);
-		context = canvas.getContext('2d');
-
-		context.fillStyle = '#222831';
-		roundRect(context, 280, 4, 360, objDimensions.desktop.height - 8, {
-			tl: 0,
-			tr: 25,
-			br: 25,
-			bl: 0
-		}, true);
-
-		context.fillStyle = '#5151E5';
-		roundRect(context, 0, 0, 300, objDimensions.desktop.height, 25, true);
-
-	}
-
-	return { canvas, context };
-}
 
 /**
  * Shows an error page
@@ -128,10 +80,11 @@ const getFileUpdatedDate = path => {
 const buildUi = (req, res) => {
 
 	country = req.params.country || country;
+	const blnMobile = req.useragent.isMobile;
 	const apiKey = req.query.api_key || api;
 	const now = new Date();
 	const strPath = path.join(__dirname, 'cache');
-	const strFilename = path.join(strPath, `${req.params.city.toLowerCase()}-${country.toLowerCase()}.png`);
+	const strFilename = path.join(strPath, `${req.params.city.toLowerCase()}-${country.toLowerCase()}-${blnMobile ? 'mob' : 'desk'}.png`);
 
 	// Firsly check to see if we have a cached image
 	if(fs.ensureDir(strPath) && fs.existsSync(strFilename) && now.getTime() - getFileUpdatedDate(strFilename).getTime() < intCacheTime)
@@ -167,28 +120,43 @@ const buildUi = (req, res) => {
 
 				const { canvas, context } = createLayout(req);
 
-				addText(context, arrDays[now.getDay()], req.useragent.isMobile ? { left: 25, top: 40 } : { left: 25, top: 50 }, '24px "Montserrat Bold"');
-				addText(context, now.toLocaleDateString(), req.useragent.isMobile ? { left: 25, top: 65 } : { left: 25, top: 75 });
-				addText(context, `${objCurrent.name}, ${objCurrent.sys.country}`, req.useragent.isMobile ? { left: 25, top: 105 } : { left: 25, top: 120 });
+				addText(context, arrDays[now.getDay()], blnMobile ? { left: 25, top: 40 } : { left: 25, top: 50 }, '24px "Montserrat Bold"');
+				addText(context, `${now.getDate()} ${arrMonths[now.getMonth()]}, ${now.getFullYear()}`, blnMobile ? { left: 25, top: 65 } : { left: 25, top: 75 });
+				addText(context, `${objCurrent.name}, ${objCurrent.sys.country}`, blnMobile ? { left: 45, top: 105 } : { left: 45, top: 110 });
 
 				loadImage(`http://openweathermap.org/img/wn/${objCurrent.weather[0].icon}@2x.png`).then(image => {
 
-					context.fillStyle = '#3838A0';
-					req.useragent.isMobile ? roundRect(context, 25, 135, 100, 100, 10, true) : roundRect(context, 25, 180, 100, 100, 10, true);
-					req.useragent.isMobile ? context.drawImage(image, 25, 135, 100, 100) : context.drawImage(image, 25, 180, 100, 100);
+					context.strokeStyle = objColours.secondary;
+					context.fillStyle = objColours.primary;
+					blnMobile ? roundRect(context, 25, 135, 100, 100, 10, true) : roundRect(context, 25, 180, 100, 100, 10, true, true);
+					blnMobile ? context.drawImage(image, 25, 135, 100, 100) : context.drawImage(image, 25, 180, 100, 100);
 
-					addText(context, `${Math.round(parseFloat(objCurrent.main.temp))}°C`, req.useragent.isMobile ? { left: 25, top: 310 } : { left: 25, top: 350 }, '64px "Montserrat Bold"');
-					addText(context, objCurrent.weather[0].main, req.useragent.isMobile ? { left: 25, top: 340 } : { left: 25, top: 380 });
+					return loadImage('./assets/pin.svg');
 
+				}).then(icon => {
+
+					blnMobile ? context.drawImage(icon, 25, 93, 13, 13) : context.drawImage(icon, 25, 98, 13, 13);
+
+					// Main weather with cloud coverage where applicable
+					let strMain = objCurrent.weather[0].main;
+					if(objCurrent.clouds.all > 10)
+					{
+						strMain+= ` (${objCurrent.clouds.all}%)`;
+					}
+
+					addText(context, `${Math.round(parseFloat(objCurrent.main.temp))}°C`, blnMobile ? { left: 25, top: 310 } : { left: 25, top: 350 }, '64px "Montserrat Bold"');
+					addText(context, strMain, blnMobile ? { left: 25, top: 340 } : { left: 25, top: 380 });
+
+					// Wind speed with gusts if applicable
 					const intSpeed = Math.round(parseFloat(objCurrent.wind.speed));
-					let strSpeed = `${Math.round(parseFloat(objCurrent.wind.speed))} mph`;
+					let strSpeed = `${intSpeed} mph`;
 					const intGusts = Math.round(parseFloat(objCurrent.wind.gust));
 					if(intSpeed !== intGusts)
 					{
-						strSpeed = `${Math.round(parseFloat(objCurrent.wind.speed))} mph (gusts of ${objCurrent.wind.gust} mph)`;
+						strSpeed = `${intSpeed} mph (gusts ${intGusts} mph)`;
 					}
 
-					if(req.useragent.isMobile)
+					if(blnMobile)
 					{
 
 						addText(context, 'FEELS LIKE', { left: objPositions.rightPane.mobile.left, top: 400 }, '16px "Montserrat Bold"');
@@ -237,17 +205,19 @@ const buildUi = (req, res) => {
 								const objDate = new Date(objDay.dt * 1000);
 								const intLeft = (intI - 1) * objPositions.rightPane.dayWidth;
 								context.fillStyle = 'rgba(255, 255, 255, 0.1)';
-								if(req.useragent.isMobile)
+								if(blnMobile)
 								{
-									roundRect(context, (objPositions.rightPane.mobile.left + intLeft), 505, objPositions.rightPane.dayWidth, 120, 10, true);
+									roundRect(context, (objPositions.rightPane.mobile.left + intLeft), 505, objPositions.rightPane.dayWidth, 125, 10, true);
 
-									addText(context, arrDays[objDate.getDay()].substring(0, 3), { left: (objPositions.rightPane.mobile.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 590 }, '16px Montserrat', 'center');
-									addText(context, `${Math.round(parseFloat(objDay.temp.day))}°C`, { left: (objPositions.rightPane.mobile.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 610 }, '16px "Montserrat Bold"', 'center');
+									addText(context, arrDays[objDate.getDay()].substring(0, 3), { left: (objPositions.rightPane.mobile.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 586 }, '16px Montserrat', 'center');
+									addText(context, `${Math.round(parseFloat(objDay.temp.day))}°C`, { left: (objPositions.rightPane.mobile.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 606 }, '16px "Montserrat Bold"', 'center');
+									addText(context, `${objDay.weather[0].main}`, { left: (objPositions.rightPane.mobile.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 624 }, '14px "Montserrat"', 'center');
 								} else {
-									roundRect(context, (objPositions.rightPane.left + intLeft), 250, objPositions.rightPane.dayWidth, 120, 10, true);
+									roundRect(context, (objPositions.rightPane.left + intLeft), 250, objPositions.rightPane.dayWidth, 130, 10, true);
 
-									addText(context, arrDays[objDate.getDay()].substring(0, 3), { left: (objPositions.rightPane.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 335 }, '16px Montserrat', 'center');
-									addText(context, `${Math.round(parseFloat(objDay.temp.day))}°C`, { left: (objPositions.rightPane.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 355 }, '16px "Montserrat Bold"', 'center');
+									addText(context, arrDays[objDate.getDay()].substring(0, 3), { left: (objPositions.rightPane.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 332 }, '16px Montserrat', 'center');
+									addText(context, `${Math.round(parseFloat(objDay.temp.day))}°C`, { left: (objPositions.rightPane.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 352 }, '16px "Montserrat Bold"', 'center');
+									addText(context, `${objDay.weather[0].main}`, { left: (objPositions.rightPane.left + intLeft + (objPositions.rightPane.dayWidth / 2)), top: 370 }, '14px "Montserrat"', 'center');
 								}
 							}
 
@@ -277,7 +247,7 @@ const buildUi = (req, res) => {
 };
 
 // Ignore favicon requests
-app.get('/favicon.ico', (_req, res) => res.status(204));
+app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
 // No data to process, show an error
 app.get('/', (req, res) => {
