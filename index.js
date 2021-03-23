@@ -131,7 +131,7 @@ const buildUi = (req, res) => {
 					blnMobile ? roundRect(context, 25, 135, 100, 100, 10, true) : roundRect(context, 25, 180, 100, 100, 10, true, true);
 					blnMobile ? context.drawImage(image, 25, 135, 100, 100) : context.drawImage(image, 25, 180, 100, 100);
 
-					return loadImage('./assets/pin.svg');
+					return loadImage(path.join(__dirname, 'assets', 'pin.svg'));
 
 				}).then(icon => {
 
@@ -150,10 +150,15 @@ const buildUi = (req, res) => {
 					// Wind speed with gusts if applicable
 					const intSpeed = Math.round(parseFloat(objCurrent.wind.speed));
 					let strSpeed = `${intSpeed} mph`;
-					const intGusts = Math.round(parseFloat(objCurrent.wind.gust));
-					if(intSpeed !== intGusts)
+
+					// Check for gusts in the API
+					if(objCurrent.wind.gust)
 					{
-						strSpeed = `${intSpeed} mph (gusts ${intGusts} mph)`;
+						const intGusts = Math.round(parseFloat(objCurrent.wind.gust));
+						if(intSpeed !== intGusts)
+						{
+							strSpeed = `${intSpeed} mph (gusts ${intGusts} mph)`;
+						}
 					}
 
 					if(blnMobile)
