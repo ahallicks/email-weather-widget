@@ -43,7 +43,7 @@ const api = process.env.API_KEY;
 const apiUrl = `https://api.openweathermap.org/data/2.5`;
 
 // Default country
-let country = 'uk';
+let defaultCountry = 'uk';
 let objCurrent = {};
 
 /**
@@ -79,7 +79,7 @@ const getFileUpdatedDate = path => {
 
 const buildUi = (req, res) => {
 
-	country = req.params.country || country;
+	const country = req.params.country || defaultCountry;
 	const blnMobile = req.useragent.isMobile;
 	const apiKey = req.query.api_key || api;
 	const now = new Date();
